@@ -1,54 +1,42 @@
+import { useEffect, useState, useRef } from "react";
+import { useGetHiddenURL } from "./hooks/useGetHiddenURL";
+import { useGetFlagFromURL } from "./hooks/useGetFlagFromURL";
 import "./styles.css";
 
-import React, { useEffect, useState } from "react";
-
 export default function App() {
-  const [hiddenUrl, setHiddenURL] = useState("");
+  const [flag, setFlag] = useState<string>("");
+  const { hiddenUrl, fetchHiddenURL } = useGetHiddenURL();
+  const { loading, fetchFlagWord, flagWord } = useGetFlagFromURL();
+  const countRef = useRef(0);
 
   useEffect(() => {
-    async function fetchHiddenURL() {
-      try {
-        const response = await fetch(
-          "https://tns4lpgmziiypnxxzel5ss5nyu0nftol.lambda-url.us-east-1.on.aws/challenge"
-        );
-        const html = await response.text();
-
-        // Create a temporary DOM element to parse the HTML
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, "text/html");
-
-        // Traverse the DOM tree to find and extract characters
-        const characters: string[] = [];
-        const codeElements = doc.querySelectorAll("code[data-class]");
-
-        console.log(codeElements);
-        codeElements.forEach((code) => {
-          const divElement = code.querySelector("div[data-tag]");
-          const spanElement = divElement?.querySelector("span[data-id]");
-          const iElement = spanElement?.querySelector("i");
-          const character = iElement?.getAttribute("value");
-
-          if (character) {
-            characters.push(character);
-          }
-        });
-
-        // Join the characters to form the hidden URL
-        const url = characters.join("");
-        setHiddenURL(url);
-      } catch (error) {
-        console.error("Error fetching or processing data:", error);
-      }
-    }
-
+    // hook to get the URL for the flag word
     fetchHiddenURL();
   }, []);
+
+  useEffect(() => {
+    if (hiddenUrl) fetchFlagWord({ url: hiddenUrl });
+  }, [hiddenUrl]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (flagWord.length) {
+      timer = setTimeout(() => {
+        if (countRef.current < flagWord.length) {
+          setFlag(flag + flagWord[countRef.current]);
+          countRef.current = countRef.current + 1;
+        }
+      }, 500);
+    }
+    return () => clearTimeout(timer);
+  }, [flagWord, flag]);
 
   return (
     <div className="App">
       <header className="App-header">
         <p>Hidden URL: {hiddenUrl}</p>
       </header>
+      <div>{loading ? <div>Loading...</div> : <p>{flag}</p>}</div>
     </div>
   );
 }
